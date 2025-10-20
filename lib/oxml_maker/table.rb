@@ -131,7 +131,7 @@ module OxmlMaker
     end
 
     def multi_line_cell_content(value)
-      if value.blank?
+      if value.nil? || value.to_s.strip.empty?
         <<~XML
           <w:p>
             <w:pPr>
