@@ -7,7 +7,12 @@ class TestOxmlMaker < Minitest::Test
     refute_nil ::OxmlMaker::VERSION
   end
 
-  def test_it_does_something_useful
-    assert false
+  def test_module_exists
+    assert_kind_of Module, OxmlMaker
+  end
+
+  def test_error_class_exists
+    assert_kind_of Class, OxmlMaker::Error
+    assert OxmlMaker::Error < StandardError
   end
 end
