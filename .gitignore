@@ -6,3 +6,8 @@
 /pkg/
 /spec/reports/
 /tmp/
+
+# Generated DOCX files
+/public/
+*.docx
+*.zip
