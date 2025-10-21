@@ -166,4 +166,213 @@ class TestTable < Minitest::Test
     assert_includes content, "<w:t>Line 2</w:t>"
     assert_includes content, "<w:t>Line 3</w:t>"
   end
+
+  def test_table_with_v_merge_and_new_line_features
+    sample_data = {
+      columns: [
+        { name: "No.", width: 800 },
+        { name: "Marketplace", width: 1500 },
+        { name: "Merchant Name", width: 3000 },
+        { name: "Merchant ID", width: 1500 },
+        { name: "Product ID", width: 2000 },
+        { name: "CP Used", width: 1500 }
+      ],
+      rows: [
+        {
+          cells: [
+            { value: :no, width: 800, v_merge: true },
+            { value: :marketplace, width: 1500, v_merge: true },
+            { value: :merchant_name, width: 3000, v_merge: true },
+            { value: :merchant_id, width: 1500, v_merge: true },
+            { value: :product_id, width: 2000, v_merge: true },
+            { value: :cp_used, width: 1500, v_merge: true, new_line: true }
+          ]
+        }
+      ],
+      data: {
+        0 => [
+          OpenStruct.new(no: "1", marketplace: "Alibaba", merchant_name: "Shenzhen BYF Precision Mould Co., Ltd.",
+                         merchant_id: "byfpm", product_id: "1600837748820", cp_used: "VA0002267367, VA0002267368"),
+          OpenStruct.new(no: "1", marketplace: "Alibaba", merchant_name: "Shenzhen BYF Precision Mould Co., Ltd.",
+                         merchant_id: "byfpm", product_id: "1600838257049", cp_used: "VA0002267367, VA0002267368"),
+          OpenStruct.new(no: "1", marketplace: "Alibaba", merchant_name: "Shenzhen BYF Precision Mould Co., Ltd.",
+                         merchant_id: "byfpm", product_id: "1600838593508", cp_used: "VA0002267367, VA0002267368"),
+          OpenStruct.new(no: "1", marketplace: "Alibaba", merchant_name: "Shenzhen BYF Precision Mould Co., Ltd.",
+                         merchant_id: "byfpm", product_id: "1600847594806", cp_used: "VA0002267367, VA0002267368"),
+          OpenStruct.new(no: "2", marketplace: "Alibaba", merchant_name: "Yiwu Lvye E-Commerce Firm",
+                         merchant_id: "chinalvye", product_id: "1601026909143", cp_used: "VA0002267368"),
+          OpenStruct.new(no: "3", marketplace: "Alibaba",
+                         merchant_name: "Ningbo City Yinzhou Yierzhe Trading Co., Ltd.", merchant_id: "easyget", product_id: "10000025426669", cp_used: "VA0002267368")
+        ]
+      },
+      font_size: 20
+    }
+
+    table = OxmlMaker::Table.new(sample_data)
+    template = table.template
+
+    # Test that v_merge functionality is working
+    # First occurrence should have "restart"
+    assert_includes template, '<w:vMerge w:val="restart"/>'
+
+    # Subsequent occurrences should have "continue"
+    assert_includes template, '<w:vMerge w:val="continue"/>'
+
+    # Test that new_line functionality is working with comma-separated CP values
+    # Should split "VA0002267367, VA0002267368" into separate lines
+    assert_includes template, "<w:t>VA0002267367</w:t>"
+    assert_includes template, "<w:t>VA0002267368</w:t>"
+
+    # Test that the data is properly rendered
+    assert_includes template, "<w:t>1</w:t>"
+    assert_includes template, "<w:t>Alibaba</w:t>"
+    assert_includes template, "<w:t>Shenzhen BYF Precision Mould Co., Ltd.</w:t>"
+    assert_includes template, "<w:t>byfpm</w:t>"
+    assert_includes template, "<w:t>1600837748820</w:t>"
+
+    # Test different merchant data
+    assert_includes template, "<w:t>2</w:t>"
+    assert_includes template, "<w:t>Yiwu Lvye E-Commerce Firm</w:t>"
+    assert_includes template, "<w:t>chinalvye</w:t>"
+
+    # Test single CP value (should not be split)
+    assert_includes template, "<w:t>VA0002267368</w:t>"
+  end
+
+  def test_v_merge_with_repeated_values
+    # Test data with repeated values that should be merged
+    # NOTE: Current implementation uses index-based logic (0 vs non-0)
+    merge_data = {
+      columns: [
+        { name: "Group", width: 1500 },
+        { name: "Item", width: 2000 }
+      ],
+      rows: [
+        {
+          cells: [
+            { value: :group, width: 1500, v_merge: true },
+            { value: :item, width: 2000 }
+          ]
+        }
+      ],
+      data: {
+        0 => [
+          OpenStruct.new(group: "A", item: "Item 1"),
+          OpenStruct.new(group: "A", item: "Item 2"),
+          OpenStruct.new(group: "A", item: "Item 3"),
+          OpenStruct.new(group: "B", item: "Item 4"),
+          OpenStruct.new(group: "B", item: "Item 5")
+        ]
+      },
+      font_size: 20
+    }
+
+    table = OxmlMaker::Table.new(merge_data)
+    template = table.template
+
+    # Current implementation: first item gets restart, rest get continue
+    restart_count = template.scan('<w:vMerge w:val="restart"/>').length
+    assert_equal 1, restart_count, "Should have 1 restart tag for first item"
+
+    # Should have continue for all subsequent items
+    continue_count = template.scan('<w:vMerge w:val="continue"/>').length
+    assert_equal 4, continue_count, "Should have 4 continue tags for remaining items"
+  end
+
+  def test_new_line_with_different_separators
+    # Test new_line functionality with various comma-separated values
+    # NOTE: Current implementation only splits on ", " (comma + space)
+    newline_data = {
+      columns: [
+        { name: "Tags", width: 3000 }
+      ],
+      rows: [
+        {
+          cells: [
+            { value: :tags, width: 3000, new_line: true }
+          ]
+        }
+      ],
+      data: {
+        0 => [
+          OpenStruct.new(tags: "tag1, tag2, tag3"),
+          OpenStruct.new(tags: "single"),
+          OpenStruct.new(tags: "first, second, third"), # With spaces
+          OpenStruct.new(tags: "")
+        ]
+      },
+      font_size: 20
+    }
+
+    table = OxmlMaker::Table.new(newline_data)
+    template = table.template
+
+    # Test comma-separated with spaces
+    assert_includes template, "<w:t>tag1</w:t>"
+    assert_includes template, "<w:t>tag2</w:t>"
+    assert_includes template, "<w:t>tag3</w:t>"
+
+    # Test single value (no splitting)
+    assert_includes template, "<w:t>single</w:t>"
+
+    # Test comma-separated with spaces (should split)
+    assert_includes template, "<w:t>first</w:t>"
+    assert_includes template, "<w:t>second</w:t>"
+    assert_includes template, "<w:t>third</w:t>"
+
+    # Test empty value
+    assert_includes template, "<w:t></w:t>"
+  end
+
+  def test_complex_table_with_both_features
+    # Test a more complex scenario combining both v_merge and new_line
+    complex_data = {
+      columns: [
+        { name: "Category", width: 1500 },
+        { name: "Subcategory", width: 1500 },
+        { name: "Items", width: 3000 }
+      ],
+      rows: [
+        {
+          cells: [
+            { value: :category, width: 1500, v_merge: true },
+            { value: :subcategory, width: 1500, v_merge: true },
+            { value: :items, width: 3000, new_line: true }
+          ]
+        }
+      ],
+      data: {
+        0 => [
+          OpenStruct.new(category: "Electronics", subcategory: "Phones", items: "iPhone, Samsung, Google"),
+          OpenStruct.new(category: "Electronics", subcategory: "Phones", items: "Xiaomi, OnePlus"),
+          OpenStruct.new(category: "Electronics", subcategory: "Laptops", items: "MacBook, ThinkPad, Dell"),
+          OpenStruct.new(category: "Books", subcategory: "Fiction", items: "Novel1, Novel2, Novel3")
+        ]
+      },
+      font_size: 20
+    }
+
+    table = OxmlMaker::Table.new(complex_data)
+    template = table.template
+
+    # Test v_merge for category (Electronics appears 3 times, Books once)
+    # Should have restart for Electronics and Books
+    assert_includes template, '<w:vMerge w:val="restart"/>'
+    assert_includes template, '<w:vMerge w:val="continue"/>'
+
+    # Test new_line for items
+    assert_includes template, "<w:t>iPhone</w:t>"
+    assert_includes template, "<w:t>Samsung</w:t>"
+    assert_includes template, "<w:t>Google</w:t>"
+    assert_includes template, "<w:t>MacBook</w:t>"
+    assert_includes template, "<w:t>ThinkPad</w:t>"
+    assert_includes template, "<w:t>Dell</w:t>"
+
+    # Test that both features work together
+    assert_includes template, "<w:t>Electronics</w:t>"
+    assert_includes template, "<w:t>Phones</w:t>"
+    assert_includes template, "<w:t>Laptops</w:t>"
+    assert_includes template, "<w:t>Books</w:t>"
+    assert_includes template, "<w:t>Fiction</w:t>"
+  end
 end
