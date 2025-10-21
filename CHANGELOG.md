@@ -1,5 +1,19 @@
 ## [Unreleased]
 
+## [0.1.2] - 2025-10-21
+
+### Added
+- Advanced table features: `v_merge` and `new_line` functionality
+- Comprehensive test suite for advanced table features (4 new tests)
+- Support for vertical cell merging in tables
+- Multi-line cell content with comma-separated value splitting
+- Test coverage for complex table scenarios with real-world data examples
+
+### Enhanced
+- Table functionality with advanced formatting capabilities
+- Test suite expanded to 67 tests with 344 assertions
+- Documentation of table feature limitations and implementation details
+
 ## [0.1.1] - 2025-10-20
 
 ### Added

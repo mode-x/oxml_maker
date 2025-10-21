@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    oxml_maker (0.1.1)
+    oxml_maker (0.1.2)
       rubyzip (~> 3.2)
 
 GEM
